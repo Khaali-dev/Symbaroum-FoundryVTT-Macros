@@ -1,0 +1,1 @@
+# Symbaroum-FoundryVTT-Macros
