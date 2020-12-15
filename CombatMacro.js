@@ -284,15 +284,11 @@ async function main(){
                   break;
                 }
 
-                console.log("durée poison:");
-                console.log(poisonRounds);
-                console.log(poisonDamage);
-
                 let poisonedEffectCounter = EffectCounter.findCounter(targetToken, effect);
   
               
                 if(poisonedEffectCounter != undefined){
-                  //la cible est déjà empoisonnée
+                  //target already poisoned
                   alreadyPoisoned = true;
                   //get the number of rounds left
                   poisonedTimeLeft = EffectCounter.findCounterValue(targetToken, effect);
