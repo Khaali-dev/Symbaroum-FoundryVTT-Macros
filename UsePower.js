@@ -9,6 +9,7 @@ async function main(){
         return;
     }
     let selectedActor = selected[0].actor;
+    let selectedToken = selected[0];
 
     // chack wether power using token is controlled by a player
     let MysticIsPC = selectedActor.hasPlayerOwner;
@@ -16,7 +17,7 @@ async function main(){
     console.log(selected[0]);
 
     // Get all powers belonging to selectedActor, and some abilities 
-    let actorPowers = selectedActor.items.filter(item => item.data?.isMysticalPower ||
+    let actorPowers = selectedActor.items.filter(item => item.data?.type === "mysticalPower" ||
                                                          item.data?.name === "Médicus" ||
                                                          item.data?.name === "Érudit" ||
                                                          item.data?.name === "Vision de l'Ombre");
@@ -27,16 +28,16 @@ async function main(){
     }
 
     //evaluate which attribute to use (for mystic powers)
-    let castingAttribute = selectedActor.data.data.attributes["resolute"];
+    let selectedAttribute = selectedActor.data.data.attributes["resolute"];
     let resoluteV = selectedActor.data.data.attributes["resolute"].value;
     let hasLeader = selectedActor.items.filter(item => item.data?.name === "Meneur né");
     if(hasLeader.length > 0){
         let persuasiveV = selectedActor.data.data.attributes["persuasive"].value;
         if(resoluteV < persuasiveV) {
-            castingAttribute = selectedActor.data.data.attributes["persuasive"];
+            selectedAttribute = selectedActor.data.data.attributes["persuasive"];
         }
         console.log("Mystic power attribut");
-        console.log(castingAttribute);
+        console.log(selectedAttribute);
     }
 
     // building the power menu
@@ -50,16 +51,13 @@ async function main(){
         <select     id="power">${powerOptions}</select></div>
     </div>
     <div style="display:flex">
-        <span style="flex:1">Etes-vous maudit? <input      id="mCursed" type="checkbox" unchecked /></span>
-    </div>
-    <div style="display:flex">
-        <span style="flex:1">La cible est-elle maudite? <input      id="tCursed" type="checkbox" unchecked /></span>
-    </div>
-    <div style="display:flex">
         <span style="flex:1">Modificateur au jet? <input  id="mod" type="number" style="width:80px;float:right" value=0 /></span>
     </div>
     <div style="display:flex">
         <span style="flex:1">Maintenir un pouvoir déjà actif? <input  id="keep" type="checkbox" unchecked /></span>
+    </div>
+    <div style="display:flex">
+        <span style="flex:1">Ce pouvoir est-il hors de votre tradition mystique? <input  id="mysTrad" type="checkbox" unchecked /></span>
     </div>
     `;
     new Dialog({
@@ -73,28 +71,34 @@ async function main(){
                     let PowerID = html.find("#power")[0].value;
                     let Pwr = selectedActor.items.find(item => item.id == PowerID)
                     let rollData = { 
-                        castingAttribute : castingAttribute,
+                        selectedAttribute : selectedAttribute,
                         modifier : Number(html.find("#mod")[0].value),
-                        mysticCursed : html.find("#mCursed")[0].checked,
-                        targetCursed : html.find("#tCursed")[0].checked,
-                        isMaintained : html.find("#keep")[0].checked
+                        isMaintained : html.find("#keep")[0].checked,
+                        fullCorruption: html.find("#mysTrad")[0].checked,
+                        selectedCursed : false
                     }
                     console.log(Pwr);
 
                     //get power level
-                    let PowerLvl = 1;
+                    let powerLvl = 1;
                     let lvlName = "Novice";
                     if(Pwr.data.data.master.isActive){
-                        PowerLvl = 3;
+                        powerLvl = 3;
                         lvlName = "Maître";
                     }
                     else if(Pwr.data.data.adept.isActive){
-                        PowerLvl = 2;
+                        powerLvl = 2;
                         lvlName = "Adepte";
                     }
                     console.log(PowerID);
-                    console.log(PowerLvl);
+                    console.log(powerLvl);
 
+                    // is the mystic cursed?
+                    const CursedEffect = "icons/svg/sun.svg";
+                    let cursedEffectCounter = EffectCounter.findCounter(selectedToken, CursedEffect);
+                    if(cursedEffectCounter != undefined){
+                        rollData.selectedCursed = true;
+                    };
                     let chatTemplate = "";
                     if(!rollData.isMaintained){
                         chatTemplate = `
@@ -118,81 +122,78 @@ async function main(){
                     let targetData;
                     const powerName = Pwr.data.name;
                     switch (powerName) {
+                        case 'Anathème':
+                            try{anathema(selectedActor, Pwr, powerLvl, rollData)} catch(error){
+                            ui.notifications.error(error);
+                            return;
+                        };
+                        evaluateCorruption(selectedActor, rollData);
+                        break;
+                        case 'Aura sacrée':
+                            try{holyAura(selectedActor, Pwr, powerLvl, rollData, selectedToken)} catch(error){
+                            ui.notifications.error(error);
+                            return;
+                        };
+                        evaluateCorruption(selectedActor, rollData);
+                        break;
+                        case 'Blessure partagée':
+                            try{inheritWound(selectedActor, Pwr, powerLvl, rollData, selectedToken)} catch(error){
+                
+                            ui.notifications.error(error);
+                            return;
+                        };
+                        evaluateCorruption(selectedActor, rollData);
+                        break;
                         case 'Médicus':
-                            rollData.castingAttribute = selectedActor.data.data.attributes["cunning"];
-                            
-                            // there is no attribute for resistance, resolute is here for compatibility but will be ignored
-                            try{targetData = getTarget("resolute")} catch(error){      
+                        rollData.selectedAttribute = selectedActor.data.data.attributes["cunning"];
+                        try{medicus(selectedActor, Pwr, powerLvl, rollData)} catch(error){
+                            ui.notifications.error(error);
+                            return;
+                        };
+                        break;
+
+                        case 'Érudit':
+                            rollData.selectedAttribute = selectedActor.data.data.attributes["cunning"];
+                        try{loremaster(selectedActor, Pwr, powerLvl, rollData)} catch(error){
+                            ui.notifications.error(error);
+                            return;
+                        };
+                        break;
+                        case 'Malédiction':
+                            try{curse(selectedActor, Pwr, powerLvl, rollData)} catch(error){
                                 ui.notifications.error(error);
                                 return;
-                            }
-                         
-                            try{medicus(selectedActor, Pwr, PowerLvl, rollData, targetData)} catch(error){
+                            };
+                            evaluateCorruption(selectedActor, rollData);
+                        break;
+                        case 'Profusion de larves':
+                            try{larvaeBoils(selectedActor, Pwr, powerLvl, rollData)} catch(error){
+                                ui.notifications.error(error);
+                                return;
+                            };
+                            evaluateCorruption(selectedActor, rollData);
+                        break;
+                        case 'Soumission':
+                            try{bendWill(selectedActor, Pwr, powerLvl, rollData)} catch(error){
+                                ui.notifications.error(error);
+                                return;
+                           };
+                           evaluateCorruption(selectedActor, rollData);
+                        break;
+                        case 'Vision de l\'Ombre':
+                            rollData.selectedAttribute = selectedActor.data.data.attributes["vigilant"];
+                            try{witchsight(selectedActor, Pwr, powerLvl, rollData)} catch(error){
                         
                                 ui.notifications.error(error);
                                 return;
                             };
-                            break;
-
-                            case 'Érudit':
-                                rollData.castingAttribute = selectedActor.data.data.attributes["cunning"];
-                            try{loremaster(selectedActor, Pwr, PowerLvl, rollData)} catch(error){
-                                ui.notifications.error(error);
-                                return;
-                            };
-                            break;
-
-                            case 'Blessure partagée':
-                                try{targetData = getTarget("resolute")} catch(error){      
-                                    ui.notifications.error(error);
-                                    return;
-                                }
-                                try{inheritWound(selectedActor, Pwr, PowerLvl, rollData, targetData)} catch(error){
-                        
-                                    ui.notifications.error(error);
-                                    return;
-                                };
-                            break;
-                            case 'Malédiction':
-                                try{targetData = getTarget("resolute")} catch(error){      
-                                    ui.notifications.error(error);
-                                    return;
-                                }
-                                try{curse(selectedActor, Pwr, PowerLvl, rollData, targetData)} catch(error){
-                                    ui.notifications.error(error);
-                                    return;
-                                };
-                            break;
-                            case 'Soumission':
-                                try{targetData = getTarget("resolute")} catch(error){      
-                                    ui.notifications.error(error);
-                                    return;
-                                }
-                                try{bendWill(selectedActor, Pwr, PowerLvl, rollData, targetData)} catch(error){
-                            
-                                    ui.notifications.error(error);
-                                    return;
-                            };
-                            break;
-                            case 'Vision de l\'Ombre':
-                                rollData.castingAttribute = selectedActor.data.data.attributes["vigilant"];
-                                try{witchsight(selectedActor, Pwr, PowerLvl, rollData)} catch(error){
-                            
-                                    ui.notifications.error(error);
-                                    return;
-                                };
-                                break;
-                             default:
+                            if(powerLvl == 3){rollData.fullCorruption = false}
+                            else{rollData.fullCorruption = true}
+                            evaluateCorruption(selectedActor, rollData);
+                        break;
+                        default:
                             ui.notifications.error("Ce pouvoir n'est pas encore intégré dans le script");
-                        }
-                        
-                        
-                        console.log("fin du switch");
-
-
-
-                        
-
+                    }
                 }
             }, 
             close: {
@@ -202,7 +203,6 @@ async function main(){
     }).render(true);
 }
 
-
 //get the target token, its actor, and evaluate which attribute this actor will use for opposition
 function getTarget(targetAttributeName) {
     let targets = Array.from(game.user.targets)  // targets renvoie un ensemble, on le transforme en tableau avec array.from
@@ -210,7 +210,17 @@ function getTarget(targetAttributeName) {
       throw "Choisissez une (seule) cible";
     }
     let targetToken = targets[0];
-    let targetActor = targets[0].actor;  // targets est un tableau donc [0]
+    let targetActor = targets[0].actor;
+
+    //is target cursed?
+    let targetCursed = false;
+    const CursedEffect = "icons/svg/sun.svg";
+    let cursedEffectCounter = EffectCounter.findCounter(targetToken, CursedEffect);
+    if(cursedEffectCounter != undefined){
+        targetCursed = true;
+    };
+
+
      // get target attribute
     let resistValue = 0;
     if(targetAttributeName != undefined)
@@ -228,32 +238,76 @@ function getTarget(targetAttributeName) {
         }
 
     }
-    return{token : targetToken, actor : targetActor, resistValue : resistValue } ;
+    return{
+        token : targetToken,
+        actor : targetActor,
+        resistValue : resistValue,
+        targetCursed : targetCursed
+    } ;
 }
 
-function rollPwr(selectedActor, Pwr, PowerLvl, rollData, targetData) {
+// function for rolling the main attribute test. 
+function rollPwr(selectedActor, Pwr, powerLvl, rollData, targetData) {
 
     //roll 1d20
     let rollP;
+
+    // check who makes the roll : if a PC is a target in opposition, it's the PC who makes the roll
     //check statuses and bonuses that will have the player roll 2 dices, and keep the highest or lowest
 
-    if(selectedActor.hasPlayerOwner){
-        if(rollData.mysticCursed){
-            rollP = new Roll("1d20kh").evaluate();
+
+///verifier qui fait le jet: selected ou target?
+    let selectedRolls = true;
+    let resistValue = 0;
+    let targetCursed = false;
+    if(targetData != undefined){
+        resistValue = targetData.resistValue;
+        targetCursed = targetData.targetCursed;
+    }
+
+
+    if(resistValue != 0){
+        if((!selectedActor.hasPlayerOwner)  && targetData.actor.hasPlayerOwner)
+        {
+            selectedRolls = false;
         }
-        else if(rollData.targetCursed){
-            rollP = new Roll("1d20kl").evaluate();
+    }
+
+    if(selectedRolls){
+        if(resistValue != 0){
+            if(rollData.selectedCursed){
+                if(targetCursed){
+                    rollP = new Roll("1d20").evaluate();
+                }
+                else{
+                    rollP = new Roll("2d20kh").evaluate();
+                }  
+            }
+            else if(targetCursed){
+                rollP = new Roll("2d20kl").evaluate();
+            }
+            else{
+                rollP = new Roll("1d20").evaluate();
+            }
+        }
+        else if(rollData.selectedCursed){
+            rollP = new Roll("2d20kh").evaluate();
         }
         else{
             rollP = new Roll("1d20").evaluate();
         }
     }
-    else{  //the player is the defendant In symbaroum, it is always the player that rolls the dice
-        if(rollData.mysticCursed){
-            rollP = new Roll("1d20kl").evaluate();
+    else{
+        if(targetCursed){
+            if(rollData.selectedCursed){
+                rollP = new Roll("1d20").evaluate();
+            }
+            else{
+                rollP = new Roll("2d20kh").evaluate();
+            }  
         }
-        else if(rollData.targetCursed){
-            rollP = new Roll("1d20kh").evaluate();
+        else if(rollData.selectedCursed){
+            rollP = new Roll("2d20kl").evaluate();
         }
         else{
             rollP = new Roll("1d20").evaluate();
@@ -266,16 +320,113 @@ function rollPwr(selectedActor, Pwr, PowerLvl, rollData, targetData) {
     return(rollP);
 };
 
-function bendWill(selectedActor, Pwr, PowerLvl, rollData, targetData) {
+async function evaluateCorruption(selectedActor, rollData){
+    let corruptionChatMessage = "";
+    let corruptionDice = "1d4";
+    let receivedCorruption = 0;
+    if(rollData.isMaintained){
+        corruptionChatMessage = `
+        <p> Maitien du pouvoir, pas de nouveau gain de corruption.</p>
+        `
+    }
+    else{
+        if(rollData.fullCorruption){
+            if(selectedActor.hasPlayerOwner){
+                let rollP = new Roll(corruptionDice).evaluate();
+                await rollP.toMessage();
+                receivedCorruption = rollP.total;
+            }
+            else{receivedCorruption = 2}
+        }
+        else{receivedCorruption = 1}
+        console.log("corrution:");
+        console.log(receivedCorruption);
+        corruptionChatMessage +=`
+        <p> ${selectedActor.data.name} reçoit ${receivedCorruption} points de corruption temporaire.</p>
+        `;
+        await selectedActor.update({"data.health.corruption.temporary" : selectedActor.data.data.health.corruption.temporary + receivedCorruption});
+        if(selectedActor.data.data.health.corruption.temporary + selectedActor.data.data.health.corruption.permanent > selectedActor.data.data.health.corruption.threshold){
+            corruptionChatMessage +=`
+            <p> ${selectedActor.data.name} dépasse son seuil de corruption.</p>
+            `;
+        }
+    }
+    ChatMessage.create({
+        speaker: {
+            alias: selectedActor.name
+        },
+        content: corruptionChatMessage
+    })
+}
 
-    let rolled = rollPwr(selectedActor, Pwr, PowerLvl, rollData, targetData); 
-    console.log("targetdat=");
+function anathema(selectedActor, Pwr, powerLvl, rollData) {
+    // get target
+    let targetData;
+    try{targetData = getTarget("resolute")} catch(error){      
+        ui.notifications.error(error);
+        return;
+    }
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData, targetData);
 
     let effectChatMessage = "";
     // if the actor performing the action is a player
     if (selectedActor.hasPlayerOwner){
 
-        let difficulty = rollData.castingAttribute.value - targetData.resistValue + 10 + rollData.modifier;
+        let difficulty = rollData.selectedAttribute.value - targetData.resistValue + 10 + rollData.modifier;
+        effectChatMessage =`
+        <p> Difficulté = ${difficulty}</p> 
+        `;
+        if(rolled.total <= difficulty){
+            effectChatMessage +=`
+                <p> ${selectedActor.data.name} supprime l'effet du pouvoir lancé par ${targetData.actor.data.name}.</p>
+                `
+        }
+        else{
+            effectChatMessage +=`
+                <p> ${selectedActor.data.name} ne parvient pas à supprimer l'effet du pouvoir lancé par ${targetData.actor.data.name}.</p>
+                `
+        }
+    }
+    else{
+        let difficulty = targetData.resistValue - rollData.selectedAttribute.value + 10 + rollData.modifier;
+        effectChatMessage =`
+        <p> Difficulté = ${difficulty}</p> 
+        `;      
+        if(rolled.total <= difficulty){
+            effectChatMessage +=`
+                <p> ${targetData.actor.data.name} parvient à résister à la tentative de dissipation par ${selectedActor.data.name}.</p>
+                `
+        }
+        else{
+            effectChatMessage +=`
+                <p> ${targetData.actor.data.name} voit son effet dissipé par ${selectedActor.data.name}.</p>
+                `
+        }
+    }
+    ChatMessage.create({
+        speaker: {
+        alias: selectedActor.name
+        },
+        content: effectChatMessage
+    })
+
+    return ;
+}
+
+function bendWill(selectedActor, Pwr, powerLvl, rollData) {
+    // getr target
+    let targetData;
+    try{targetData = getTarget("resolute")} catch(error){      
+        ui.notifications.error(error);
+        return;
+    }
+
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData, targetData);
+    let effectChatMessage = "";
+    // if the actor performing the action is a player
+    if (selectedActor.hasPlayerOwner){
+
+        let difficulty = rollData.selectedAttribute.value - targetData.resistValue + 10 + rollData.modifier;
         effectChatMessage =`
         <p> Difficulté = ${difficulty}</p> 
         `;
@@ -291,11 +442,11 @@ function bendWill(selectedActor, Pwr, PowerLvl, rollData, targetData) {
         }
     }
     else{
-        let difficulty = targetData.resistValue - rollData.castingAttribute.value + 10 + rollData.modifier;
+        let difficulty = targetData.resistValue - rollData.selectedAttribute.value + 10 + rollData.modifier;
         effectChatMessage =`
         <p> Difficulté = ${difficulty}</p> 
         `;      
-        if(rolled.total <= Difficulty){
+        if(rolled.total <= difficulty){
             effectChatMessage +=`
                 <p> ${targetData.actor.data.name} parvient à résister à la tentative de soumission par ${selectedActor.data.name}.</p>
                 `
@@ -316,21 +467,24 @@ function bendWill(selectedActor, Pwr, PowerLvl, rollData, targetData) {
     return ;
 }
 
-
-function curse(selectedActor, Pwr, PowerLvl, rollData) {
+async function curse(selectedActor, Pwr, powerLvl, rollData) {
     
-    let curseTarget = getTarget();
-    const effect = "icons/svg/daze.svg";
-    let cursedEffect = new EffectCounter(1, effect, curseTarget.token, false);
-    cursedEffect.update();
+    let targetData;
+    try{targetData = getTarget()} catch(error){      
+        ui.notifications.error(error);
+        return;
+    }
+    const effect = "icons/svg/sun.svg";
+    let cursedEffect = new EffectCounter(1, effect, targetData.token, false);
+    await cursedEffect.update();
     
-    let effectChatMessage = `<p> ${curseTarget.actor.data.name} est maudit!.</p>`;
-    if(PowerLvl == 3)
+    let effectChatMessage = `<p> ${targetData.actor.data.name} est maudit!.</p>`;
+    if(powerLvl == 3)
     {
-        effectChatMessage += `<p> ${curseTarget.actor.data.name} est pris de douleurs dès qu'il essaie d'accomplir une action (1d6 dégâts ignorant l'armure).</p>`;
+        effectChatMessage += `<p> ${targetData.actor.data.name} est pris de douleurs dès qu'il essaie d'accomplir une action (1d6 dégâts ignorant l'armure).</p>`;
     }
     else{
-        effectChatMessage += `<p> ${curseTarget.actor.data.name} n'a vraiment pas de chance (pour chaque action, il jette 2d20 et garde le moins avantageux).</p>`;
+        effectChatMessage += `<p> ${targetData.actor.data.name} n'a vraiment pas de chance (pour chaque action, il jette 2d20 et garde le moins avantageux).</p>`;
     };
     ChatMessage.create({
         speaker: {
@@ -342,32 +496,177 @@ function curse(selectedActor, Pwr, PowerLvl, rollData) {
     return ;
 }
 
-function inheritWound(selectedActor, Pwr, PowerLvl, rollData) {
-    // besoin d'une cible
-    let targetActor; 
-    try{targetActor = getTarget()} catch(error){
+function holyAura(selectedActor, Pwr, powerLvl, rollData, selectedToken) {
+ 
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData);
+    let effectChatMessage = "";
+    
+    if(rolled.total <= rollData.selectedAttribute.value){
+
+        effectChatMessage += `
+        <p> ${selectedActor.data.name} est entourée d'une aura lumineuse bienfaisante.</p>
+        `;
+        //add effect status on token
+        const pEffect = "icons/svg/aura.svg";
+        let auraEffect = new EffectCounter(0, pEffect, selectedToken, false);
+        auraEffect.update();
+
+        let auraDamage = "1d6";
+        let auraHeal = "1d4";
+        if(powerLvl == 2){auraDamage = "1d8"}
+        else if(powerLvl == 3){auraDamage = "1d10"; auraHeal = "1d6"}
         
-        throw error;
-    };
-    console.log("Blessure partagée lancée");
-    console.log(targetActor);
-    return ;
+        let abTheurgy = selectedActor.items.filter(item => item.data?.name === "Théurgie");
+        let isTheurgeMaster = false;
+        if(abTheurgy.length > 0){
+            if(abTheurgy[0].data.data.master.isActive){
+                auraDamage += " + 1d4";
+                auraHeal += " + 1d4";
+            }
+        }
+
+        if(powerLvl == 1){
+            effectChatMessage += `
+            <p> Les abominations et mort-vivants subissent ${auraDamage} points de dégats, sauf ceux exclus de l'effet par ${selectedActor.data.name}.</p>
+            `;
+        }
+        else if(powerLvl == 2){
+            effectChatMessage += `
+            <p> Les abominations et mort-vivants prennent ${auraDamage} points de dégats, sauf ceux exclus de l'effet par ${selectedActor.data.name} et les créatures vivantes sont soignées de ${auraHeal} points.</p>
+            `;
+        }
+        else{
+            effectChatMessage += `
+            <p> Les abominations et mort-vivants prennent ${auraDamage} points de dégats, sauf ceux exclus de l'effet par ${selectedActor.data.name} et les créatures alliées vivantes sont soignées de ${auraHeal} points.</p>
+            `;
+        }
+    }
+    else{
+        effectChatMessage += `
+        <p> ${selectedActor.data.name} ne parvient pas à canaliser la lumière de Prios.</p>
+        `;
+    }
+    ChatMessage.create({
+        speaker: {
+        alias: selectedActor.name
+        },
+        content: effectChatMessage
+    });
+
 }
 
-function loremaster(selectedActor, Pwr, PowerLvl, rollData) {
+async function inheritWound(selectedActor, Pwr, powerLvl, rollData, selectedToken) {
+    let targetData;
+    try{targetData = getTarget("resolute")} catch(error){      
+        ui.notifications.error(error);
+        return;
+    }
+    let targetActor = targetData.actor;
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData, targetData);
+    let effectChatMessage = "";
+    let healDice = "1d6";
+
+    if(powerLvl >= 2){
+        healDice = "1d8"
+    }
+
+    if(rolled.total <= rollData.selectedAttribute.value){
+
+        let healRoll = new Roll(healDice).evaluate();
+        healRoll.toMessage();
+        let healed = Math.min(healRoll.total, targetActor.data.data.health.toughness.max - targetActor.data.data.health.toughness.value);
+        await targetActor.update({"data.health.toughness.value" : targetActor.data.data.health.toughness.value + healed});
+        
+        await targetData.token.drawBars();
+        effectChatMessage = `
+        <p> ${selectedActor.data.name} soigne ${targetActor.data.name} de ${healed} points d'endurance.</p>
+        `
+        let inheritDamage = healed;
+        if(powerLvl >= 2){
+            inheritDamage = Math.ceil(healed /2);
+        }
+        await selectedActor.update({"data.health.toughness.value" : selectedActor.data.data.health.toughness.value - inheritDamage});
+        
+        effectChatMessage += `
+        <p> Les blessures apparaissent sur ${selectedActor.data.name}, qui perd ${inheritDamage} points d'endurance.</p>
+        `
+        if(powerLvl >= 2){
+            
+            const pEffect = "icons/svg/poison.svg";
+            let poisonedEffectCounter = EffectCounter.findCounter(targetData.token, pEffect);
+  
+              
+            if(poisonedEffectCounter != undefined){
+            //target  poisoned
+            //get the number of rounds left
+            let poisonedTimeLeft = EffectCounter.findCounterValue(targetData.token, pEffect);
+            //set status to caster
+            let poisonedEffect = new EffectCounter(poisonedTimeLeft, pEffect, selectedToken, false);
+            poisonedEffect.update();
+            //remove status from target
+            poisonedEffectCounter.setValue(0,targetData.token, false);
+            await poisonedEffectCounter.update();
+
+
+            effectChatMessage += `
+              <p> ${selectedActor.data.name} reçoit le poison de ${targetActor.data.name}. Il dure toujours ${poisonedTimeLeft} rounds mais ne fera à ${selectedActor.data.name} que la moitié des dommages prévus.</p>
+              `;
+            }
+
+        }
+    }
+    else{
+        effectChatMessage += `
+        <p> ${selectedActor.data.name} ne parvient pas à partager les blessures de ${targetActor.data.name}.</p>
+        `;
+    }
+    selectedToken.drawBars();
+    ChatMessage.create({
+        speaker: {
+        alias: selectedActor.name
+        },
+        content: effectChatMessage
+    });
+
+}
+
+function larvaeBoils(selectedActor, Pwr, powerLvl, rollData) {
+ 
+    let targetData;
+    try{targetData = getTarget("strong")} catch(error){      
+        ui.notifications.error(error);
+        return;
+    }
+    let effectChatMessage = `<p> Des larves commencent à dévorer ${curseTarget.actor.data.name} de l'intérieur.</p>`;
+    let effectDamage = "1d4";
+    if(powerLvl == 2){
+        effectDamage = "1d6";
+    }
+    else if(powerLvl == 3){
+        effectDamage = "1d8";
+    }
+    effectChatMessage = `<p>${curseTarget.actor.data.name} subira ${effectDamage} points de dégats chaque tour.</p>`
+    ChatMessage.create({
+        speaker: {
+        alias: selectedActor.name
+        },
+        content: effectChatMessage
+    })
+}
+
+function loremaster(selectedActor, Pwr, powerLvl, rollData) {
     console.log("érudition lancée");
     
-    let roll = new Roll("1d20").evaluate();
-    roll.toMessage();
-    let LoremasterChatMessage = "";
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData);
+    let effectChatMessage = "";
 
-    if(roll.total <= rollData.castingAttribute.value){
-        LoremasterChatMessage =`
+    if(rolled.total <= rollData.selectedAttribute.value){
+        effectChatMessage =`
             <p> ${selectedActor.data.name} en sait quelquechose.</p>
             `
     }
     else{
-        LoremasterChatMessage =`
+        effectChatMessage =`
             <p> ${selectedActor.data.name} ne sait pas grand chose sur ce sujet.</p>
             `
     }
@@ -375,22 +674,18 @@ function loremaster(selectedActor, Pwr, PowerLvl, rollData) {
         speaker: {
         alias: selectedActor.name
         },
-        content: LoremasterChatMessage
+        content: effectChatMessage
     })
     return ;
 }
 
-
-
-function medicus(selectedActor, Pwr, PowerLvl, rollData) {
+function medicus(selectedActor, Pwr, powerLvl, rollData) {
     // besoin d'une cible
-    let targetActor; 
-    try{targetActor = getTarget()} catch(error){
-        
+    let targetData; 
+    try{targetData = getTarget()} catch(error){
         throw error;
     };
-
-   
+    let targetActor = targetData.actor;
     let RemdyDialogTemplate = `
     <h1> Voulez-vous utiliser un remède à base de plantes? </h1>
     `;
@@ -407,17 +702,17 @@ function medicus(selectedActor, Pwr, PowerLvl, rollData) {
                 callback: (html) => {                 
                     PlantRemedy = true;
 
-                    if(PowerLvl == 1){
+                    if(powerLvl == 1){
                         healFormula = "1d6"
                     }
-                    else if(PowerLvl == 2){
+                    else if(powerLvl == 2){
                         healFormula = "1d8"
                     }
                     else{
                         healFormula = "1d10";
                         healFormulaMasterFailed = "1d6";
                     }
-                    medicusHeal(selectedActor, targetActor, PowerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed);
+                    medicusHeal(selectedActor, targetData, Pwr, powerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed);
                 }
             }, 
 
@@ -425,17 +720,17 @@ function medicus(selectedActor, Pwr, PowerLvl, rollData) {
                 label: "Sans remède", 
                 callback: (html) => {             
                     PlantRemedy = false;
-                    if(PowerLvl == 1){
+                    if(powerLvl == 1){
                         healFormula = "1d4"
                     }
-                    else if(PowerLvl == 2){
+                    else if(powerLvl == 2){
                         healFormula = "1d6"
                     }
                     else{
                         healFormula = "1d8";
                         healFormulaMasterFailed = "1d4";
                     }
-                    medicusHeal(selectedActor, targetActor, PowerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed);
+                    medicusHeal(selectedActor, targetData, Pwr, powerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed);
                 }
             },
             close: {
@@ -445,72 +740,99 @@ function medicus(selectedActor, Pwr, PowerLvl, rollData) {
     }).render(true);
 }
        
-function medicusHeal(selectedActor, targetActor, PowerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed) {
-    let roll = new Roll("1d20").evaluate();
-    roll.toMessage();
-    let HealChatMessage = "";
-
-    if(roll.total <= rollData.castingAttribute.value){
+async function medicusHeal(selectedActor, targetData, Pwr, powerLvl, rollData, PlantRemedy, healFormula, healFormulaMasterFailed) {
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData);
+    let effectChatMessage = "";
+    let targetActor = targetData.actor;
+    if(rolled.total <= rollData.selectedAttribute.value){
 
         let healRoll = new Roll(healFormula).evaluate();
-        if(targetActor.data.data.health.toughness.value + healRoll.total > targetActor.data.data.health.toughness.max){
-            targetActor.data.data.health.toughness.value = targetActor.data.data.health.toughness.max;
-        }
-        else {targetActor.data.data.health.toughness.value = targetActor.data.data.health.toughness.value + healRoll.total;}
-
+        healRoll.toMessage();
+        let healed = Math.min(healRoll.total, targetActor.data.data.health.toughness.max - targetActor.data.data.health.toughness.value);
+        await targetActor.update({"data.health.toughness.value" : targetActor.data.data.health.toughness.value + healed});
+        
+ 
         if(PlantRemedy){
-            HealChatMessage =`
+            effectChatMessage =`
             <p> ${selectedActor.data.name} soigne ${targetActor.data.name} avec un remède à base de plantes pour ${healRoll.total} points d'endurance.</p>
             `
         }
         else{
-            HealChatMessage = `
+            effectChatMessage = `
             <p> ${selectedActor.data.name} soigne ${targetActor.data.name} (sans remède) pour ${healRoll.total} points d'endurance.</p>
             `
         }
     }
     else{
-        if(PowerLvl == 3){
+        if(powerLvl == 3){
             let healRoll = new Roll(healFormulaMasterFailed).evaluate();
-            if(targetActor.data.data.health.toughness.value + healRoll.total > targetActor.data.data.health.toughness.max){
-                targetActor.data.data.health.toughness.value = targetActor.data.data.health.toughness.max;
-            }
-            else {targetActor.data.data.health.toughness.value = targetActor.data.data.health.toughness.value + healRoll.total;}
+            healRoll.toMessage();
+            let healed = Math.min(healRoll.total, targetActor.data.data.health.toughness.max - targetActor.data.data.health.toughness.value);
+            await targetActor.update({"data.health.toughness.value" : targetActor.data.data.health.toughness.value + healed});
+            
             if(PlantRemedy){
-                HealChatMessage =`
+                effectChatMessage =`
                 <p> ${selectedActor.data.name} soigne ${targetActor.data.name} avec un remède à base de plantes pour ${healRoll.total} points d'endurance.</p>
                 `
             }
             else{
-                HealChatMessage = `
+                effectChatMessage = `
                 <p> ${selectedActor.data.name} soigne ${targetActor.data.name} (sans remède) pour ${healRoll.total} points d'endurance.</p>
                 `
             }
         }
         else{
-            HealChatMessage = `
+            effectChatMessage = `
             <p> Aie! Quelle brute!</p>
             `
         }
+    }
+    await targetData.token.drawBars();
+    ChatMessage.create({
+        speaker: {
+        alias: selectedActor.name
+        },
+        content: effectChatMessage
+    });
+}
+
+function witchsight(selectedActor, Pwr, powerLvl, rollData) {
+    // is there a target?
+    let targets = Array.from(game.user.targets);
+    let targetData;
+    let isTargeted = false;
+    if(targets.length != 0){
+      isTargeted = true;
+      try{targetData = getTarget("discreet")} catch(error){
+        throw error;
+        };
+        rollData.modifier = rollData.modifier - targetData.resistValue + 10;
+    }
+    let rolled = rollPwr(selectedActor, Pwr, powerLvl, rollData, targetData);
+    let effectChatMessage = "";
+
+    if(rolled.total <= rollData.selectedAttribute.value + rollData.modifier){
+        if(isTargeted){
+            effectChatMessage =`
+            <p> ${selectedActor.data.name} perçoit l'ombre de ${targetData.actor.data.name}. ${targetData.actor.data.data.bio.shadow}</p>
+            `
+        }
+        else{
+            effectChatMessage =`
+            <p> ${selectedActor.data.name} perçoit les ombres.</p>
+            `
+        }
+    }
+    else{
+        effectChatMessage =`
+            <p> ${selectedActor.data.name} ne parvient pas à percevoir les ombres.</p>
+            `
     }
     ChatMessage.create({
         speaker: {
         alias: selectedActor.name
         },
-        content: HealChatMessage
+        content: effectChatMessage
     })
-    console.log("will return");
-}
-
-function witchsight(selectedActor, Pwr, PowerLvl, rollData) {
-    // besoin d'une cible?
-    let targetActor; 
-    try{targetActor = getTarget()} catch(error){
-        
-        throw error;
-    };
-    console.log("Vision de l'ombre lancée");
-    
-    console.log(targetActor);
     return ;
 }
