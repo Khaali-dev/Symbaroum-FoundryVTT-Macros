@@ -405,7 +405,6 @@ async function damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData,
   let dmgdetail = dmgRoll.result;
   let targetDies = false;
           
-<<<<<<< HEAD
   if(targetData.actor.data.data.health.toughness.value - dmgTot <= 0){
       dmgTot = targetData.actor.data.data.health.toughness.value;
       targetDies = true;
@@ -474,90 +473,6 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetDat
       };
       break;
   }
-=======
-            let dmgRoll= new Roll(newRollDmgString).evaluate();
-            let dmgTot = Math.max(dmgRoll.total, 0);
-            let dmgdetail = dmgRoll.result;
-            console.log(wepDmg);
-            console.log(dmgTot);
-            console.log(dmgdetail);
-            targetActor.data.data.health.toughness.value = targetActor.data.data.health.toughness.value - dmgTot;
-            let targetDies = false;
-            if(targetActor.data.data.health.toughness.value <= 0){
-              targetActor.data.data.health.toughness.value = 0;
-              targetDies = true;
-              const skullEffect = "icons/svg/skull.svg";
-              targetToken.toggleEffect(skullEffect);
-            }
-
-            chatTemplate += `
-            <p> Total du jet d'attaque : ${detail} = ${result} réussi sous votre attribut (${targetVal})</p>
-            <p> ${selectedActor.data.name} touche ${targetActor.data.name}</p>
-            <p> Dégats : ${dmgTot} </p>
-            <p> Décomposition des Dégats : ${dmgdetail} </p>
-            `;
-
-            let poisonDamage = "0";
-            let poisonRounds = "0";
-            let alreadyPoisoned = false;
-            let poisonedTimeLeft = 0;
-
-            //poison effect
-            if(poisonStrenght > 0 && !targetDies && dmgTot > 0){
-              const effect = "icons/svg/poison.svg";
-              
-
-              switch (poisonStrenght) {
-                case "1":
-                  if(AttaquantPC){
-                    poisonDamage = "1d4";
-                    poisonRounds = "1d4";
-                  }
-                  else{
-                    poisonDamage = "2";
-                    poisonRounds = "2";
-                  };
-                  break;
-                case "2":
-                  if(AttaquantPC){
-                    poisonDamage = "1d6";
-                    poisonRounds = "1d6";
-                  }
-                  else{
-                    poisonDamage = "3";
-                    poisonRounds = "3";
-                  };
-                  break;
-                case "3":
-                  if(AttaquantPC){
-                    poisonDamage = "1d8";
-                    poisonRounds = "1d8";
-                  }
-                  else{
-                    poisonDamage = "4";
-                    poisonRounds = "4";
-                  };
-                  break;
-                }
-
-                let poisonedEffectCounter = EffectCounter.findCounter(targetToken, effect);
-  
-              
-                if(poisonedEffectCounter != undefined){
-                  //target already poisoned
-                  alreadyPoisoned = true;
-                  //get the number of rounds left
-                  poisonedTimeLeft = EffectCounter.findCounterValue(targetToken, effect);
-                  console.log(poisonedTimeLeft);
-
-                  let PoisonRoundsRoll= new Roll(poisonRounds).evaluate();
-
-                  chatTemplate += `
-                  <p> ${targetActor.data.name} était déjà empoisonné pour ${poisonedTimeLeft} rounds</p>
-                  `;
-
-                  let NewPoisonRounds = PoisonRoundsRoll.total;
->>>>>>> 851a793ce97c380f21bf7f91b39bfa1be6e0ed13
 
     let poisonedEffectCounter = await EffectCounter.findCounter(targetData.token, effect);
     if(poisonedEffectCounter != undefined){
