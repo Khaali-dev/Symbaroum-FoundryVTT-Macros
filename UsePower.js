@@ -86,12 +86,12 @@ async function main(){
                     let chatTemplate = "";
                     if(!rollData.isMaintained){
                         chatTemplate = `
-                        <p> ${selectedActor.data.name} essaie d'utiliser ${Pwr.data.name} au niveau ${lvlName}. </p>
+                        <p style="color:green;font-size:20px;"> ${selectedActor.data.name} essaie d'utiliser ${Pwr.data.name} au niveau ${lvlName}. </p>
                         `;
                     }
                     else{
                         chatTemplate = `
-                        <p> ${selectedActor.data.name} de maintenir ${Pwr.data.name}. </p>
+                        <p style="color:green;font-size:20px;"> ${selectedActor.data.name} de maintenir ${Pwr.data.name}. </p>
                         `;
                     }
                     ChatMessage.create({
@@ -339,7 +339,7 @@ async function evaluateCorruption(selectedActor, rollData){
         console.log("corrution:");
         console.log(receivedCorruption);
         corruptionChatMessage +=`
-        <p> ${selectedActor.data.name} reçoit ${receivedCorruption} points de corruption temporaire.</p>
+        <p style="color:red;font-size:16px;"> ${selectedActor.data.name} reçoit ${receivedCorruption} points de corruption temporaire.</p>
         `;
         await selectedActor.update({"data.health.corruption.temporary" : selectedActor.data.data.health.corruption.temporary + receivedCorruption});
         if(selectedActor.data.data.health.corruption.temporary + selectedActor.data.data.health.corruption.permanent > selectedActor.data.data.health.corruption.threshold){
@@ -954,7 +954,8 @@ function witchsight(selectedActor, Pwr, powerLvl, rollData) {
     if(rolled.total <= rollData.selectedAttribute.value + rollData.modifier){
         if(isTargeted){
             effectChatMessage =`
-            <p> ${selectedActor.data.name} perçoit l'ombre de ${targetData.actor.data.name}. ${targetData.actor.data.data.bio.shadow}</p>
+            <p> ${selectedActor.data.name} perçoit l'ombre de ${targetData.actor.data.name}:</p>
+            <p style="font-size:16px;"> ${targetData.actor.data.data.bio.shadow}</p>
             `
         }
         else{

@@ -94,14 +94,14 @@ async function main(){
                   damageResult = await damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData, rangedData);
                 //poison effect
                 if(poisonStrenght > 0 && !damageResult.targetDies && damageResult.dmgTot > 0){
-                  poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetData);
+                  poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData, targetData);
                 }
                 if(targetData.actor.data.data.health.toughness.value <= 0){
                   chatTemplate += `
                   <p> ${targetData.actor.data.name} est mortellement touché et s'éffondre.</p>
                   `;
                 }
-                else if(damageRoll.dmgTot >= targetData.actor.data.data.health.toughness.threshold){
+                else if(damageRoll.dmgTot > targetData.actor.data.data.health.toughness.threshold){
                   chatTemplate += `
                   <p> ${targetData.actor.data.name} est sonné, et doit choisir entre tomber à terre, ou s'exposer à une attaque gratuite de ${selectedActor.data.name}</p>
                   `;
@@ -265,14 +265,14 @@ function attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rang
   if (attackFromPC){
     chatAttack += `
     <p> </p>
-    <p> ${selectedActor.data.name} attaque ${targetData.actor.data.name}.</p>
+    <p style="color:green;font-size:24px;"> ${selectedActor.data.name} attaque ${targetData.actor.data.name}.</p>
     <p> Jet sous l'attribut d'attaque (${rollData.selectedAttribute.value}) modifié par la défense.</p>
     `;
   }
   else{
     chatAttack += `
     <p> </p>
-    <p> ${targetData.actor.data.name} essaie de se défendre contre l'attaque de ${selectedActor.data.name}.</p>
+    <p style="color:red;font-size:24px;"> ${targetData.actor.data.name} essaie de se défendre contre l'attaque de ${selectedActor.data.name}.</p>
     <p> Jet de défense (${targetData.resistValue}) modifiée par l'attaque.</p>
     `;
   }
@@ -313,7 +313,7 @@ function attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rang
   else{
     rollData.modifier += rollData.selectedAttribute.value - 10;
     if(rolled.result <= targetData.resistValue - rollData.modifier){
-      chatAttack += `<p>${targetData.actor.data.name} esquive ou pare l'attaque de ${selectedActor.data.name}.</p>`;
+      chatAttack += `<p style="color:green;font-size:20px;">${targetData.actor.data.name} esquive ou pare l'attaque de ${selectedActor.data.name}.</p>`;
     }
     else{  
       touche = true;        
@@ -419,7 +419,7 @@ async function damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData,
     }
   }
   chatAttack += `
-  <p> ${targetData.actor.data.name} reçoit ${dmgTot} points de dégâts. </p>
+  <p style="color:red;font-size:20px;"> ${targetData.actor.data.name} reçoit ${dmgTot} points de dégâts. </p>
   `;
   ChatMessage.create({
     speaker: {
@@ -433,13 +433,12 @@ async function damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData,
   }
 }
 
-async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetData){
+async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData, targetData){
   
   let poisonDamage = "0";
   let poisonRounds = "0";
-  let alreadyPoisoned = false;
   let poisonedTimeLeft = 0;
-  let chatAttack = "";
+  let effectChatMessage = "";
   const effect = "icons/svg/poison.svg";
   switch (poisonStrenght){
     case 1:
@@ -474,17 +473,62 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetDat
       break;
   }
 
+  let PoisonRollTargetData = {
+    actor : targetData.actor,
+    resistValue : targetData.actor.data.data.attributes["strong"].value,
+    targetCursed : targetData.cursed
+  }
+  let poisonRoll = rollSymb(selectedActor, rollData, PoisonRollTargetData);
+  poisonRoll.toMessage();
+  let poisonSuccess = false;
+  if (selectedActor.hasPlayerOwner){
+
+    let difficulty = selectedActor.data.data.attributes["cunning"].value - PoisonRollTargetData.resistValue + 10;
+    effectChatMessage =`
+    <p> Difficulté du jet pour empoisonner = ${difficulty}</p> 
+    `;
+    if(poisonRoll.total <= difficulty){
+        effectChatMessage +=`
+            <p style="color:red;"> ${selectedActor.data.name} empoisonne ${targetData.actor.data.name}.</p>
+            `;
+            poisonSuccess = true;
+    }
+    else{
+        effectChatMessage +=`
+            <p style="color:green;"> ${selectedActor.data.name} ne parvient pas à empoisonner ${targetData.actor.data.name}.</p>
+            `
+    }
+  }
+  else{
+    let difficulty = PoisonRollTargetData.resistValue - selectedActor.data.data.attributes["cunning"].value + 10;
+    effectChatMessage =`
+    <p> Difficulté du jet de résistance au poison = ${difficulty}</p> 
+    `;
+
+    if(poisonRoll.total <= difficulty){
+        effectChatMessage +=`
+            <p style="color:green;"> ${targetData.actor.data.name} résiste à l'empoisonnement ${selectedActor.data.name}.</p>
+            `
+    }
+    else{
+        effectChatMessage +=`
+            <p style="color:red;"> ${targetData.actor.data.name} est empoisonné par ${selectedActor.data.name}.</p>
+            `;
+            poisonSuccess = true;
+    }
+  }
+
+  if(poisonSuccess){
     let poisonedEffectCounter = await EffectCounter.findCounter(targetData.token, effect);
     if(poisonedEffectCounter != undefined){
       //target already poisoned
-      alreadyPoisoned = true;
       //get the number of rounds left
       poisonedTimeLeft = await EffectCounter.findCounterValue(targetData.token, effect);
       console.log(poisonedTimeLeft);
 
       let PoisonRoundsRoll= new Roll(poisonRounds).evaluate();
 
-      chatAttack += `
+      effectChatMessage += `
       <p> ${targetData.actor.data.name} était déjà empoisonné pour ${poisonedTimeLeft} rounds</p>
       `;
 
@@ -495,12 +539,12 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetDat
           poisonedEffectCounter.setValue(NewPoisonRounds,targetData.token, false);
           poisonedEffectCounter.update();
         }
-        chatAttack += `
+        effectChatMessage += `
         <p> La durée du poison est prolongée, l'effet durera encore ${NewPoisonRounds} rounds</p>
         `;
       }
       else{
-        chatAttack += `
+        effectChatMessage += `
         <p> La durée du poison reste inchangée</p>
         `;
       }
@@ -514,17 +558,18 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, targetDat
         let poisonedEffect = new EffectCounter(poisonedTimeLeft, effect, targetData.token, false);
         poisonedEffect.update();
       }
-      chatAttack += `
-      <p> ${targetData.actor.data.name} est empoisonné, et recevra ${poisonDamage} dégâts pendant ${poisonedTimeLeft} rounds</p>
+      effectChatMessage += `
+      <p style="color:red;font-size:20px;"> ${targetData.actor.data.name} est empoisonné, et recevra ${poisonDamage} dégâts pendant ${poisonedTimeLeft} rounds</p>
       <p> ${targetData.actor.data.name} commencera à prendre les dommages lors de sa prochaine action (à faire à la main!)</p>
       `;
     };
-    ChatMessage.create({
-      speaker: {
-        alias: selectedActor.name
-      },
-      content: chatAttack
-    })
+  }
+  ChatMessage.create({
+    speaker: {
+      alias: selectedActor.name
+    },
+    content: effectChatMessage
+  })
 }
 
 async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData){
