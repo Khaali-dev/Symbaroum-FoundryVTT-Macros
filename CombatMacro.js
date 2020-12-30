@@ -213,9 +213,7 @@ function rollSymb(selectedActor, rollData, targetData) {
       else{
           rollP = new Roll("1d20").evaluate();
       }
-  }
-  rollP.toMessage();
-
+  };
   console.log("result of the roll:");
   console.log(rollP.total);
   return(rollP);
@@ -324,7 +322,8 @@ function attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rang
       alias: selectedActor.name
     },
     content: chatAttack
-  })
+  });
+  rolled.toMessage();
   return(touche)
 }
 
@@ -478,7 +477,7 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData,
     targetCursed : targetData.cursed
   }
   let poisonRoll = rollSymb(selectedActor, rollData, PoisonRollTargetData);
-  poisonRoll.toMessage();
+  
   let poisonSuccess = false;
   if (selectedActor.hasPlayerOwner){
 
@@ -559,7 +558,7 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData,
       }
       effectChatMessage += `
       <p style="color:red;font-size:20px;"> ${targetData.actor.data.name} est empoisonné, et recevra ${poisonDamage} dégâts pendant ${poisonedTimeLeft} rounds</p>
-      <p> ${targetData.actor.data.name} commencera à prendre les dommages lors de sa prochaine action (à faire à la main!)</p>
+      <p> ${targetData.actor.data.name} commencera à prendre les dommages au début du prochain round (à faire à la main!)</p>
       `;
     };
   }
@@ -568,7 +567,8 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData,
       alias: selectedActor.name
     },
     content: effectChatMessage
-  })
+  });
+  poisonRoll.toMessage();
 }
 
 async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData, rangedData){
@@ -601,7 +601,7 @@ async function strangler(attackFromPC, selectedActor, wep, rollData, targetData,
       //hit
       dmgData.ignoreArm = true;
 
-      let damageResult = await damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData);
+      let damageResult = await damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData, rangedData);
        //death
       if(targetData.actor.data.data.health.toughness.value <= 0){
         chatTemplate += `
@@ -611,7 +611,6 @@ async function strangler(attackFromPC, selectedActor, wep, rollData, targetData,
       else{
         chatTemplate += `
         <p> ${selectedActor.data.name} saisit ${targetData.actor.data.name} et commence à l'étrangler.</p>
-        <p> ${targetData.actor.data.name} reçoit ${damageResult.total} points de dégts.</p>
         `;
       }
     }
