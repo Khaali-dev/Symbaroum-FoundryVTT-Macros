@@ -18,7 +18,6 @@ async function main(){
     ui.notifications.error(error);
     return;
   }
-  // Recherche tous les items de type weapon appartenant à selectedActor
   let actorWeapons = selectedActor.items.filter(item => item.data?.type == "weapon")
   if(actorWeapons.length == 0){
     ui.notifications.error("Le personnage selectionné n'a aucune arme en main.");
@@ -36,7 +35,7 @@ async function main(){
   if(hunterInstinct.length != 0){
     hasHunterI = true;
   }
-
+/* CHANGE THIS FOR THE FOLDER IN WHICH YOU PUT THE TEMPLATE*/
   let htmlTemplate = await renderTemplate("worlds/Shared_data/Templates/dialog-combat.html",{
     weapons : actorWeapons, hasBackstab: hasBackstab, isFullDisplay : false });
 
@@ -82,7 +81,7 @@ async function main(){
             if(rangedData.hunterIToHit){
               rollData.use2kl = true;
             }
-            specialA = await specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData);
+            specialA = await specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData, rangedData);
             if(!specialA){
 
               let touche = attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rangedData);
@@ -572,7 +571,7 @@ async function poisonUsed(attackFromPC, selectedActor, poisonStrenght, rollData,
   })
 }
 
-async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData){
+async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetData, dmgData, rangedData){
   if(wep.data.name === "Garrot"){
     let actorAbilities = selectedActor.items.filter(item => item.data?.isAbility);
     let stranglerAbil = actorAbilities.filter(item => (item.data.name == "Étrangleur"))
@@ -584,7 +583,7 @@ async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetD
       ui.notifications.error("Vous devez avoir l'avantage pour utiliser un garrot");
       return(true);
     }
-    return(await strangler(attackFromPC, selectedActor, wep, rollData, targetData, dmgData))
+    return(await strangler(attackFromPC, selectedActor, wep, rollData, targetData, dmgData, rangedData))
   }
   else{
     console.log("here");
@@ -592,11 +591,11 @@ async function specialAttack(attackFromPC, selectedActor, wep, rollData, targetD
   }
 }
 
-async function strangler(attackFromPC, selectedActor, wep, rollData, targetData, dmgData){
+async function strangler(attackFromPC, selectedActor, wep, rollData, targetData, dmgData, rangedData){
      //I suppress the advantage bonus for the strangler roll
     rollData.hasAdvantage = false;
     dmgData.hasAdvantage = false;
-    let touche = attackRoll(attackFromPC, selectedActor, wep, rollData, targetData);
+    let touche = attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rangedData);
     let chatTemplate = "";
     if(touche){
       dmgData.ignoreArm = true;

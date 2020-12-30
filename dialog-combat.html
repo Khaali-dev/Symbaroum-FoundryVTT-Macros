@@ -1,0 +1,77 @@
+<style>
+    .flex-row-wrap {
+     display: flex; 
+     flex-wrap: wrap; 
+     flex-direction: row; 
+     justify-content: space-between
+ }
+ 
+ label.check {
+     margin-bottom: 3px; 
+     vertical-align: bottom;
+ }
+ 
+ input.check {
+     width: 43px; 
+     height: 15px;
+ }
+ 
+ select {
+         width:150px;
+     }
+ 
+ .dialog-label {
+     display: inline-block; 
+     width: 170px;
+ }
+ 
+ .w-50 {
+     width: 50px;
+ }
+ 
+ .pb-5 {
+     padding-bottom: 5px;
+ }
+ 
+ </style>
+ <div class="flex-row-wrap">
+     <div class="pb-5">
+         <label class="dialog-label">Choisissez une arme</label>
+         <select id="weapon">
+             {{#each weapons}}
+             <option value={{this.id}}>{{this.name}} | Attribut: {{this.data.data.attribute}} </option>
+             {{/each}}
+         </select>
+     </div>
+     <div class="pb-5">
+         <label class="dialog-label">Poison appliqué?</label>
+         <select id="poison">
+             <option value="0">Pas de poison</option>
+             <option value="1">Poison léger</option>
+             <option value="2">Poison moyen</option>
+             <option value="3">Poison fort</option>
+         </select>
+     </div>
+     <div class="pb-5">
+         <label for="advantage" class="dialog-label check">Avantage?</label>
+         <input id="avntg" class="check" type="checkbox" unchecked />
+     </div>
+     <div class="pb-5">
+         <label for="ignoreArmor" class="dialog-label check">Ignorer l'armure?</label>
+         <input id="ign" class="check" type="checkbox" unchecked />
+     </div>
+     <div class="pb-5">
+         <label for="attackMod" class="dialog-label">Modificateur attaque?</label>
+         <input id="modAtk" style="width: 50px;" type="number" value=0 />
+     </div>
+     <div class="pb-5">
+         <label for="damageMod" class="dialog-label">Modificateur aux dégâts?</label>
+         <input id="modDam" style="width: 200px;" type="text" value="0" />
+     </div>
+     {{#if hasBackstab}}
+     <div class="pb-5">
+         <label for="backstab" class="dialog-label check">Utilise coup en traître?</label>
+         <input id="useBckstb" class="check" type="checkbox" unchecked />
+     </div>
+     {{/if}}
+ </div>

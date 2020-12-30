@@ -9,3 +9,5 @@ UsePower macro let the player or gamemaster use powers and several abilities (lo
 
 IT IS A WORK IN PROGRESS. The macros are stable, but currently the html is ugly and only a fraction of powers and abilities are supported.
 For the moment, they are in french only.
+
+in order to use the html templates, you have to put them somewhere in your data folder, and link it 

@@ -1,0 +1,58 @@
+<style>
+    .flex-row-wrap {
+     display: flex; 
+     flex-wrap: wrap; 
+     flex-direction: row; 
+     justify-content: space-between
+ }
+ 
+ label.check {
+     margin-bottom: 3px; 
+     vertical-align: bottom;
+ }
+ 
+ input.check {
+     width: 43px; 
+     height: 15px;
+ }
+ 
+ select {
+         width:150px;
+     }
+ 
+ .dialog-label {
+     display: inline-block; 
+     width: 220px;
+ }
+ 
+ .w-50 {
+     width: 50px;
+ }
+ 
+ .pb-5 {
+     padding-bottom: 5px;
+ }
+ 
+ </style>
+ <div class="flex-row-wrap">
+     <div class="pb-5">
+         <label class="dialog-label">Choisissez un pouvoir ou un talent</label>
+         <select id="power">
+             {{#each powers}}
+             <option value={{this.id}}>{{this.name}}</option>
+             {{/each}}
+         </select>
+     </div>
+     <div class="pb-5">
+         <label for="maintain" class="dialog-label check">Maintenir un pouvoir déjà actif?</label>
+         <input id="keep" class="check" type="checkbox" unchecked />
+     </div>
+     <div class="pb-5">
+         <label for="mysticTrad" class="dialog-label check">Ce pouvoir est-il hors de votre tradition mystique?</label>
+         <input id="mysTrad" class="check" type="checkbox" unchecked />
+     </div>
+     <div class="pb-5">
+         <label for="modifier" class="dialog-label">Modificateur au jet?</label>
+         <input id="mod" style="width: 50px;" type="number" value=0 />
+     </div>
+ </div>

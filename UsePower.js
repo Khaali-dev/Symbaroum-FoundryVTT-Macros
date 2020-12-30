@@ -40,7 +40,7 @@ async function main(){
         console.log("Mystic power attribut");
         console.log(selectedAttribute);
     }
-
+/* CHANGE THIS FOR THE FOLDER IN WHICH YOU PUT THE TEMPLATE*/
     let htmlTemplate = await renderTemplate("worlds/Shared_data/Templates/dialog-power.html",{
         powers : actorPowers, isFullDisplay : false });
 
