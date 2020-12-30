@@ -372,31 +372,31 @@ async function damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData,
     chatAttack += `[marque du chasseur] `;
   }
   chatAttack += `</p>`;
-  // calcul du jet de dommage si l'attaquant est dirigé par un Joueur
+  // If the attack is made by a PC, roll damage and substract static value for armor (=max armor/2)
   if(attackFromPC){
-    // calcul de l'armure du PNJ
+    // evaluate NPC armor value
     let armorRoll= new Roll(armorProt).evaluate({maximize: true});
     let armorValue = Math.ceil(armorRoll.total/2);
 
-    //fabrication du pool
+    //build roll string
     newRollDmgString = wepDmg + " + " + dmgData.modifier + " + " + modDmg;
     if(!dmgData.ignoreArm){
       newRollDmgString += " - " + armorValue;
     }
   }
   else{
-    // calcul du jet de dommage si l'attaquant est un PNJ
+    // If the attack is made by a NPC, evaluate static value for damage (=max damage/2) then roll armor and substract
     wepDmg += " + " + dmgData.modifier;
     let weaponRoll= new Roll(wepDmg).evaluate({maximize: true});
     let weaponDmgValue = Math.ceil(weaponRoll.total/2);
 
-    //fabrication du pool
+   //build roll string
     newRollDmgString = weaponDmgValue + " + " + `${modDmg}`; 
     if(!dmgData.ignoreArm){
       newRollDmgString += " - " + armorProt;
     }
   }
-  // calcul des dégats
+  // final damage
   let dmgRoll= new Roll(newRollDmgString).evaluate();
   
   await dmgRoll.toMessage();
@@ -598,10 +598,11 @@ async function strangler(attackFromPC, selectedActor, wep, rollData, targetData,
     let touche = attackRoll(attackFromPC, selectedActor, wep, rollData, targetData, rangedData);
     let chatTemplate = "";
     if(touche){
+      //hit
       dmgData.ignoreArm = true;
 
       let damageResult = await damageRoll(attackFromPC, selectedActor, wep, dmgData, targetData);
-       
+       //death
       if(targetData.actor.data.data.health.toughness.value <= 0){
         chatTemplate += `
         <p> ${targetData.actor.data.name} est mortellement touché et s'éffondre.</p>
@@ -610,11 +611,12 @@ async function strangler(attackFromPC, selectedActor, wep, rollData, targetData,
       else{
         chatTemplate += `
         <p> ${selectedActor.data.name} saisit ${targetData.actor.data.name} et commence à l'étrangler.</p>
+        <p> ${targetData.actor.data.name} reçoit ${damageResult.total} points de dégts.</p>
         `;
       }
     }
     else {
-        // attaque ratée
+        // missed
         chatTemplate += `
         <p> ${selectedActor.data.name} ne parvient pas à maitriser ${targetData.actor.data.name}</p>
         `;
